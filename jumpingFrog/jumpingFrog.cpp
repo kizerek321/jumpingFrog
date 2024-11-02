@@ -1,34 +1,63 @@
-﻿#include <iostream>
+﻿#define _CRT_SECURE_NO_WARNINGS
+
+#include <iostream>
 #include "conio2.h"
 
-struct Frog {
-    int x = 40 , y = 25;
-	int speed;
-	int direction;
-	int jump;
-	int jumpHeight;
-	bool colision;
-	int color = GREEN;
-};
 
-struct Car {
-	int x , y;
-	int speed;
-	int direction;
-	int typeOfCar; // 0 - friendly, 1 - enemy
-	bool colision;
-	int movmentType; // 0 - normal 1 - speed changes 2 - dissapearing
+typedef struct Frog {
+    int x = 0, y = 0;
+	int speed = 0;
+	int direction = 0;
+	int jump = 0;
+	int jumpHeight = 0;
+	bool colision = 0;
+	int color = GREEN;
+	char sign = 'a';
+} Frog;
+
+typedef struct Car {
+	int x = 0, y = 0;
+	int speed = 0;
+	int direction = 0;
+	int typeOfCar = 0; // 0 - friendly, 1 - enemy
+	bool colision = 0;
+	int movmentType = 0; // 0 - normal 1 - speed changes 2 - dissapearing
 	int friendlycolor = BLUE;
 	int enemycolor = RED;
- };
+	char sign = 'a';
+ }Car;
 
-struct Board {
-	int width = 80 , height = 25;
-	int roadHeight, roadWidth;
-	int numberOfStreets =5;
-	int numberOfCars = 4; // number of cars on the street
-};
+typedef struct Board {
+	int width = 0, height = 0;
+	int roadHeight = 0, roadWidth = 0;
+	int numberOfStreets = 0;
+	int numberOfCars = 0; // number of cars on the street
+}Board;
 
+void loadFile (Board*board,Frog*frog,Car*car) {
+	FILE * file = fopen("config.txt","r");
+	if ( file == NULL ) {
+		std::cout << "Error while opening file";
+		exit ( 1 );
+	}
+	fscanf ( file , 
+			 "%d %d %d %d %d %d %d %d %d %d %d %d %d %c" ,
+			 &board->width , 
+			 &board->height, 
+			 &board->roadHeight ,
+			 &board->roadWidth ,
+			 &board->numberOfStreets ,
+			 &board->numberOfCars ,
+			 &frog->x ,
+			 &frog->y ,
+			 &frog->speed ,
+			 &frog->direction ,
+			 &frog->jump ,
+			 &frog->jumpHeight ,
+			 &frog->colision ,
+			 &frog->sign );
+	fclose ( file );
+}
 void startingStage (Board &board, Frog&frog) {
 
 }
@@ -37,9 +66,11 @@ int main()
 {
 	Board board;
 	Frog frog;
+	Car car;
 	settitle ( "Krzysztof Szudy - Jumping Frog" );
 	_setcursortype ( _NOCURSOR );
 	textmode ( C4350 );
+	loadFile ( &board , &frog , &car);
 	char input = 'a';
 	while ( input != 'q' ) {
 		clrscr ();
@@ -47,7 +78,7 @@ int main()
 		std::cout << "Press q to quit";
 		gotoxy ( frog.x , frog.y );
 		textcolor ( frog.color );
-		std::cout << "F";
+		std::cout << frog.sign;
 		input = getch ();
 	}
 }
