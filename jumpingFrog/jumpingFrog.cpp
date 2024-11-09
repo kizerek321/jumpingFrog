@@ -63,44 +63,45 @@ void movingFrog (Frog&frog, Board*board, char input) {
 	}
 }
 
-void spawnCars ( Board * board , Car * car ) {
+void spawnCars ( Board * board , Car * cars ) {
 	int lastSpawn = 0;
 	int currentTime = clock ();
 	if ( ( currentTime - lastSpawn ) / CLOCKS_PER_SEC >= 2 ) {
-		for ( int i = 0; board->numberOfCars; i++ ) {
-			if ( car[i].x == 0 && car[i].y == 0 ) {//not active car will have cords 0,0
-				car[i].lenght = rand () % car[i].max_lenght + 1;
-				if ( car[i].lenght > car[i].max_lenght / 2 ) {
-					car[i].direction = LEFT;
-					car[i].x = board->x_end_board;
+		for ( int i = 0; i < board->numberOfCars; i++ ) {
+			if ( cars[i].x == 0 && cars[i].y == 0 ) { //not active car will have cords 0,0
+				cars[i].lenght = rand () % cars[i].max_lenght + 1;
+				if ( cars[i].lenght > cars[i].max_lenght / 2 ) {
+					cars[i].direction = LEFT;
+					cars[i].x = board->x_end_board;
 				}
 				else {
-					car[i].direction = RIGHT;
-					car[i].x = START_BOARD;
+					cars[i].direction = RIGHT;
+					cars[i].x = START_BOARD;
 				}
-				car[i].y = board->roadY[i];
+				cars[i].y = board->roadY[i];
 				lastSpawn = currentTime;
 			}
 		}
 	}
 }
 
-void moveCar ( Board * board , Car * car ) {
+
+void moveCar ( Board * board , Car * cars ) {
 	for ( int i = 0; i < board->numberOfCars; i++ ) {
-		if ( car[i].x != 0 || car[i].y != 0 ) {
-			car[i].x += car[i].direction * car[i].speed;
-			if ( car[i].x >= START_BOARD + board->width - 1 ) {
-				car[i].x = car[i].y = 0;
+		if ( cars[i].x != 0 || cars[i].y != 0 ) {
+			cars[i].x += cars[i].direction * cars[i].speed;
+			if ( cars[i].x >= START_BOARD + board->width - 1 ) {
+				cars[i].x = cars[i].y = 0;
 			}
-			else if ( car[i].x <= START_BOARD ) {
-				car[i].x = car[i].y = 0;
+			else if ( cars[i].x <= START_BOARD ) {
+				cars[i].x = cars[i].y = 0;
 			}
 
 		}
 	}
 }
 
-void loadFile (Board*board,Frog*frog,Car*car) {
+void loadFile (Board*board,Frog*frog,Car*car, Car *& cars ) {
 	FILE * file = fopen("config.txt","r");
 	if ( file == NULL ) {
 		printf("Error while opening file");
@@ -130,10 +131,14 @@ void loadFile (Board*board,Frog*frog,Car*car) {
 	}
 	board->x_end_board = board->width + START_BOARD;
 	board->y_end_board = board->height + START_BOARD;
-	car = new Car[board->numberOfCars];
+	cars = new Car[board->numberOfCars];
+	for ( int i = 0; i < board->numberOfCars; i++ ) {
+		cars[i].sign= car->sign;
+		cars[i].max_lenght = car->max_lenght;
+	}
 }
 
-void printingBoard (Board*board, Frog&frog, Car*car, clock_t start_time) {
+void printingBoard (Board*board, Frog&frog, Car*cars, clock_t start_time) {
 	gotoxy ( 0 , 0 );
 	int y = START_BOARD + board->height;
 	int x = START_BOARD + board->width;
@@ -164,15 +169,12 @@ void printingBoard (Board*board, Frog&frog, Car*car, clock_t start_time) {
 				gotoxy ( frog.x , frog.y );
 				putch ( sign );
 			}
-			if ( i == car->y && j == car->x ) {
-				if ( car->direction == 1 ) {
-					for ( int i = 0; i < car->max_lenght; i++ ) {
-
-					}
+			for ( int k = 0; k < board->numberOfCars; k++ ) {
+				if ( i == cars[k].y && j == cars[k].x ) {
+					textcolor ( cars[k].color );
+					char sign = cars[k].sign;
+					putch ( sign );
 				}
-				textcolor ( car->color );
-				char sign = car->sign;
-				putch( sign );
 			}
 		}
 	}
@@ -186,12 +188,12 @@ void printingBoard (Board*board, Frog&frog, Car*car, clock_t start_time) {
 
 }
 
-void handelInput ( Board*board , Frog&frog , Car*car ) {
+void handelInput ( Board*board , Frog&frog , Car*cars ) {
 	char input = 'j';
 	clock_t start_time = clock ();
 	while (true) {
-		spawnCars (  board , car );
-		printingBoard ( board , frog , car,  start_time);
+		spawnCars (  board , cars );
+		printingBoard ( board , frog , cars,  start_time);
 		if ( kbhit () ) { // Sprawdź, czy naciśnięto klawisz
 			input = getch ();
 			if ( input == 'q' ) {
@@ -208,11 +210,15 @@ void handelInput ( Board*board , Frog&frog , Car*car ) {
 int main()
 {
 	srand ( time ( NULL ) );
-	Board* board;
+	Board* board = new Board;
 	Frog frog;
-	Car* car;
+	Car* car = new Car;
+	Car * cars = nullptr;
 	settitle ( "Krzysztof Szudy - Jumping Frog" );
 	_setcursortype ( _NOCURSOR );
-	loadFile ( board , frog , car);
-	handelInput ( board , frog , *car );
+	loadFile ( board , &frog , car, cars);
+	delete car;
+	handelInput ( board , frog , cars );
+	delete[] cars;
+	delete board;
 }
