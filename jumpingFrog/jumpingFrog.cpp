@@ -8,18 +8,19 @@
 #define ROAD_HEIGHT 2
 #define LEFT -1
 #define RIGHT 1
-
+#define X_END_INFO 50
+#define Y_END_INFO 20
 
 
 
 typedef struct Frog {
 	int oldX = 0 , oldY = 0;
     int x = 0, y = 0;
-	int speed = 0;
 	int direction = 0;
 	int jump = 0;
 	int jumpHeight = 0;
 	bool colision = 0;
+	bool win = false;
 	int color = GREEN;
 	char sign = 'a';
 } Frog;
@@ -34,6 +35,7 @@ typedef struct Car {
 	int movmentType = 0; // 0 - normal 1 - speed changes 2 - dissapearing
 	int color = RED;
 	char sign = 'a';
+	bool dissapear = false;
  }Car;
 
 typedef struct Board {
@@ -42,8 +44,9 @@ typedef struct Board {
 	int numberOfStreets = 0;
 	int firstYRoad = 0;
 	int * roadY;
-	int numberOfCars = 0; // number of cars on the street
+	int numberOfCars = 0;
 	int * x_road , *y_road ;
+	int spawn_car_x = 0;
 }Board;
 
 void movingFrog (Frog&frog, Board*board, char input) {
@@ -64,41 +67,82 @@ void movingFrog (Frog&frog, Board*board, char input) {
 }
 
 void spawnCars ( Board * board , Car * cars ) {
-	int lastSpawn = 0;
-	int currentTime = clock ();
-	if ( ( currentTime - lastSpawn ) / CLOCKS_PER_SEC >= 2 ) {
-		for ( int i = 0; i < board->numberOfCars; i++ ) {
-			if ( cars[i].x == 0 && cars[i].y == 0 ) { //not active car will have cords 0,0
-				cars[i].lenght = rand () % cars[i].max_lenght + 1;
-				if ( cars[i].lenght > cars[i].max_lenght / 2 ) {
-					cars[i].direction = LEFT;
-					cars[i].x = board->x_end_board;
-				}
-				else {
-					cars[i].direction = RIGHT;
-					cars[i].x = START_BOARD;
-				}
-				cars[i].y = board->roadY[i];
-				lastSpawn = currentTime;
+	for ( int i = 0; i < board->numberOfCars; i++ ) {
+		if ( cars[i].x == 0 && cars[i].y == 0 ) { //not active car will have cords 0,0
+			cars[i].lenght = rand () % cars[i].max_lenght + 1;
+			if ( cars[i].lenght > cars[i].max_lenght / 2 ) {
+				cars[i].direction = LEFT;
+				cars[i].x = board->spawn_car_x;
+				cars[i].dissapear = true;
 			}
+			else {
+				cars[i].direction = RIGHT;
+				cars[i].x = board->spawn_car_x;
+				cars[i].speed = 1.5;
+			}
+			cars[i].y = board->roadY[i];
 		}
 	}
 }
 
 
 void moveCar ( Board * board , Car * cars ) {
+	static int moveCounter = 0;
+	const int moveDelay = 4;    
+
+	moveCounter++;
+	if ( moveCounter < moveDelay ) {
+		return; 
+	}
+	moveCounter = 0;
 	for ( int i = 0; i < board->numberOfCars; i++ ) {
 		if ( cars[i].x != 0 || cars[i].y != 0 ) {
+			gotoxy ( cars[i].x , cars[i].y );
+			putchar ( ' ' );
 			cars[i].x += cars[i].direction * cars[i].speed;
-			if ( cars[i].x >= START_BOARD + board->width - 1 ) {
-				cars[i].x = cars[i].y = 0;
+			if ( cars[i].dissapear ) {
+				if ( cars[i].x >= START_BOARD + board->width -2 ) {
+					cars[i].x = START_BOARD;
+				}
+				else if ( cars[i].x <= START_BOARD ) {
+					cars[i].x = START_BOARD + board->width - 2;
+				}
 			}
-			else if ( cars[i].x <= START_BOARD ) {
-				cars[i].x = cars[i].y = 0;
-			}
-
+			else {
+				bool hitBorder = false;
+				if ( cars[i].x >= START_BOARD + board->width - 2 ) {
+					hitBorder = true;
+				}
+				else if ( cars[i].x <= START_BOARD ) {
+					hitBorder = true;
+				}
+				if ( hitBorder ) {
+					if ( cars[i].direction == RIGHT ) {
+						cars[i].direction = LEFT;
+					}
+					else {
+						cars[i].direction = RIGHT;
+					}
+				}
+			}	
 		}
 	}
+}
+
+bool win ( Frog & frog , Board * board ) {
+	if ( frog.y == START_BOARD + 1 ) {
+		return true;
+	}
+	return false;
+}
+
+bool colision (Frog&frog, Board*board, Car*cars) {
+	for ( int i = 0; i < board->numberOfCars; i++ ) {
+		if ( frog.y == cars[i].y && frog.x == cars[i].x ) {
+			return true;
+		}
+	}
+	return false;
 }
 
 void loadFile (Board*board,Frog*frog,Car*car, Car *& cars ) {
@@ -108,14 +152,13 @@ void loadFile (Board*board,Frog*frog,Car*car, Car *& cars ) {
 		exit ( 1 );
 	}
 	fscanf ( file , 
-			 "%d %d %d %d %d %d %d %d %d %d %d %c %c %d %d" ,
+			 "%d %d %d %d %d %d %d %d %d %d %c %c %d %d %d" ,
 			 &board->width , 
 			 &board->height, 
 			 &board->numberOfStreets ,
 			 &board->numberOfCars ,
 			 &frog->x ,
 			 &frog->y ,
-			 &frog->speed ,
 			 &frog->direction ,
 			 &frog->jump ,
 			 &frog->jumpHeight ,
@@ -123,7 +166,8 @@ void loadFile (Board*board,Frog*frog,Car*car, Car *& cars ) {
 			 &frog->sign, 
 			 &car->sign,
 			 &car->max_lenght,
-			 &board->firstYRoad);
+			 &board->firstYRoad,
+			 &car->speed);
 	fclose ( file );
 	board->roadY = new int[board->numberOfStreets];
 	for ( int i = 0; i < board->numberOfStreets; i++ ) {
@@ -131,10 +175,12 @@ void loadFile (Board*board,Frog*frog,Car*car, Car *& cars ) {
 	}
 	board->x_end_board = board->width + START_BOARD;
 	board->y_end_board = board->height + START_BOARD;
+	board->spawn_car_x = ( board->x_end_board - 1 )/2;
 	cars = new Car[board->numberOfCars];
 	for ( int i = 0; i < board->numberOfCars; i++ ) {
 		cars[i].sign= car->sign;
 		cars[i].max_lenght = car->max_lenght;
+		cars[i].speed = car->speed;
 	}
 }
 
@@ -191,20 +237,36 @@ void printingBoard (Board*board, Frog&frog, Car*cars, clock_t start_time) {
 void handelInput ( Board*board , Frog&frog , Car*cars ) {
 	char input = 'j';
 	clock_t start_time = clock ();
-	while (true) {
+	while (true && !frog.colision && !frog.win) {
+		frog.colision = colision ( frog , board , cars );
+		frog.win = win ( frog , board );
 		spawnCars (  board , cars );
+		moveCar ( board , cars );
 		printingBoard ( board , frog , cars,  start_time);
-		if ( kbhit () ) { // Sprawdź, czy naciśnięto klawisz
+		if ( kbhit () ) { 
 			input = getch ();
 			if ( input == 'q' ) {
-				break; // Zakończ grę, jeśli naciśnięto 'q'
+				break; 
 			}
 			movingFrog ( frog ,board, input );
 		}
 	}
 	clock_t end_time = clock ();
 	double gameplay_time = ( double ) ( end_time - start_time ) / CLOCKS_PER_SEC;
-
+	if ( frog.win ) {
+		gotoxy (X_END_INFO,Y_END_INFO );
+		textcolor ( GREEN );
+		printf ( "You win! Your time: %.2f s" , gameplay_time );
+	}
+	else if ( frog.colision ) {
+		gotoxy ( X_END_INFO , Y_END_INFO );
+		textcolor ( RED );
+		printf ( "You lose! Your time: %.2f s" , gameplay_time );
+	}
+	textcolor ( BLUE );
+	gotoxy ( X_END_INFO , Y_END_INFO + 1 );
+	printf ( "Thank you for playing! Press any key to exit..." );
+	textcolor ( WHITE );
 }
 
 int main()
