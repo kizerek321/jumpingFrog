@@ -26,7 +26,8 @@ typedef struct Frog {
 } Frog;
 
 typedef struct Car {
-	int x = 0, y = 0;
+	int y = 0;
+	int * x = nullptr;
 	int speed = 0;
 	int direction = 0;
 	int max_lenght = 0;
@@ -68,16 +69,28 @@ void movingFrog (Frog&frog, Board*board, char input) {
 
 void spawnCars ( Board * board , Car * cars ) {
 	for ( int i = 0; i < board->numberOfCars; i++ ) {
-		if ( cars[i].x == 0 && cars[i].y == 0 ) { //not active car will have cords 0,0
+		if ( cars[i].x == nullptr && cars[i].y == 0 ) { //not active car will have cords 0,0
 			cars[i].lenght = rand () % cars[i].max_lenght + 1;
-			if ( cars[i].lenght > cars[i].max_lenght / 2 ) {
+			cars[i].x = new int[cars[i].lenght];
+			if(cars[i].dissapear ) {
+				cars[i].direction = rand () % 2 == 0 ? LEFT : RIGHT;
+				for ( int k = 0; k < cars[i].lenght; k++ ) {
+					cars[i].x[k] = ( rand () % board->width )+ START_BOARD + k;
+				}
+				cars[i].speed = rand()%3+1;
+			}
+			else if ( cars[i].lenght % 2 == 0) {
 				cars[i].direction = LEFT;
-				cars[i].x = board->spawn_car_x;
+				for ( int k = 0; k < cars[i].lenght; k++ ) {
+					cars[i].x[k] = board->spawn_car_x + k;
+				}
 				cars[i].dissapear = true;
 			}
 			else {
 				cars[i].direction = RIGHT;
-				cars[i].x = board->spawn_car_x;
+				for ( int k = 0; k < cars[i].lenght; k++ ) {
+					cars[i].x[k] = board->spawn_car_x - k;
+				}
 				cars[i].speed = 1.5;
 			}
 			cars[i].y = board->roadY[i];
@@ -95,25 +108,31 @@ void moveCar ( Board * board , Car * cars ) {
 		return; 
 	}
 	moveCounter = 0;
+	
 	for ( int i = 0; i < board->numberOfCars; i++ ) {
-		if ( cars[i].x != 0 || cars[i].y != 0 ) {
-			gotoxy ( cars[i].x , cars[i].y );
+		if ( cars[i].x == nullptr ) {
+			return;
+		}
+		for ( int k = 1; k < board->width - 1; k++ ) { //clearing street
+			gotoxy ( START_BOARD + k , cars[i].y );
 			putchar ( ' ' );
-			cars[i].x += cars[i].direction * cars[i].speed;
+		}
+		for ( int k = 0; k < cars[i].lenght; k++ ) { //moving
+			cars[i].x[k] += cars[i].direction * cars[i].speed;
+		}
+		for ( int k = 0; k < cars[i].lenght; k++ ) {
 			if ( cars[i].dissapear ) {
-				if ( cars[i].x >= START_BOARD + board->width -2 ) {
-					cars[i].x = START_BOARD;
-				}
-				else if ( cars[i].x <= START_BOARD ) {
-					cars[i].x = START_BOARD + board->width - 2;
+				if ( cars[i].x[k] >= START_BOARD + board->width - 2 ||
+					 cars[i].x[k] <= START_BOARD ) {
+					cars[i].x = nullptr;
+					cars[i].y = 0;
+					break;
 				}
 			}
 			else {
 				bool hitBorder = false;
-				if ( cars[i].x >= START_BOARD + board->width - 2 ) {
-					hitBorder = true;
-				}
-				else if ( cars[i].x <= START_BOARD ) {
+				if ( cars[i].x[k] >= START_BOARD + board->width - 2 ||
+					 cars[i].x[k] <= START_BOARD) {
 					hitBorder = true;
 				}
 				if ( hitBorder ) {
@@ -124,7 +143,7 @@ void moveCar ( Board * board , Car * cars ) {
 						cars[i].direction = RIGHT;
 					}
 				}
-			}	
+			}
 		}
 	}
 }
@@ -138,8 +157,10 @@ bool win ( Frog & frog , Board * board ) {
 
 bool colision (Frog&frog, Board*board, Car*cars) {
 	for ( int i = 0; i < board->numberOfCars; i++ ) {
-		if ( frog.y == cars[i].y && frog.x == cars[i].x ) {
-			return true;
+		for ( int k = 0; k < cars[i].lenght; k++ ) {
+			if ( frog.y == cars[i].y && frog.x == cars[i].x[k] ) {
+				return true;
+			}
 		}
 	}
 	return false;
@@ -216,10 +237,12 @@ void printingBoard (Board*board, Frog&frog, Car*cars, clock_t start_time) {
 				putch ( sign );
 			}
 			for ( int k = 0; k < board->numberOfCars; k++ ) {
-				if ( i == cars[k].y && j == cars[k].x ) {
-					textcolor ( cars[k].color );
-					char sign = cars[k].sign;
-					putch ( sign );
+				for ( int l = 0; l < cars[k].lenght; l++ ) {
+					if ( i == cars[k].y && j == cars[k].x[l] ) {
+						textcolor ( cars[k].color );
+						char sign = cars[k].sign;
+						putch ( sign );
+					}
 				}
 			}
 		}
@@ -267,6 +290,7 @@ void handelInput ( Board*board , Frog&frog , Car*cars ) {
 	gotoxy ( X_END_INFO , Y_END_INFO + 1 );
 	printf ( "Thank you for playing! Press any key to exit..." );
 	textcolor ( WHITE );
+	getch ();
 }
 
 int main()
