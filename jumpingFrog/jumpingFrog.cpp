@@ -37,6 +37,7 @@ typedef struct Car {
 	int color = RED;
 	char sign = 'a';
 	bool dissapear = false;
+	bool active = false;
  }Car;
 
 typedef struct Board {
@@ -69,14 +70,23 @@ void movingFrog (Frog&frog, Board*board, char input) {
 
 void spawnCars ( Board * board , Car * cars ) {
 	for ( int i = 0; i < board->numberOfCars; i++ ) {
-		if ( cars[i].x == nullptr && cars[i].y == 0 ) { //not active car will have cords 0,0
+		if (!cars[i].active ) {
 			cars[i].lenght = rand () % cars[i].max_lenght + 1;
 			cars[i].x = new int[cars[i].lenght];
+			cars[i].active = true;
 			if(cars[i].dissapear ) {
 				cars[i].direction = rand () % 2 == 0 ? LEFT : RIGHT;
-				for ( int k = 0; k < cars[i].lenght; k++ ) {
-					cars[i].x[k] = ( rand () % board->width )+ START_BOARD + k;
+				if ( cars[i].direction == RIGHT ) {
+					for ( int k = cars[i].lenght - 1; k >= 0; k-- ) {
+						cars[i].x[k] = ( rand () % board->width ) + START_BOARD + k;
+					}
 				}
+				else {
+					for ( int k = 0; k < cars[i].lenght; k++ ) {
+						cars[i].x[k] = ( rand () % board->width ) + START_BOARD + k;
+					}
+				}
+				
 				cars[i].speed = rand()%3+1;
 			}
 			else if ( cars[i].lenght % 2 == 0) {
@@ -111,12 +121,9 @@ void moveCar ( Board * board , Car * cars ) {
 	
 	for ( int i = 0; i < board->numberOfCars; i++ ) {
 		if ( cars[i].x == nullptr ) {
-			return;
+			continue;
 		}
-		for ( int k = 1; k < board->width - 1; k++ ) { //clearing street
-			gotoxy ( START_BOARD + k , cars[i].y );
-			putchar ( ' ' );
-		}
+		
 		for ( int k = 0; k < cars[i].lenght; k++ ) { //moving
 			cars[i].x[k] += cars[i].direction * cars[i].speed;
 		}
@@ -124,9 +131,10 @@ void moveCar ( Board * board , Car * cars ) {
 			if ( cars[i].dissapear ) {
 				if ( cars[i].x[k] >= START_BOARD + board->width - 2 ||
 					 cars[i].x[k] <= START_BOARD ) {
+					delete[] cars[i].x;
 					cars[i].x = nullptr;
 					cars[i].y = 0;
-					break;
+					cars[i].lenght = 0;
 				}
 			}
 			else {
@@ -144,6 +152,10 @@ void moveCar ( Board * board , Car * cars ) {
 					}
 				}
 			}
+		}
+		for ( int k = 1; k < board->width - 1; k++ ) { //clearing street
+			gotoxy ( START_BOARD + k , cars[i].y );
+			putchar ( ' ' );
 		}
 	}
 }
@@ -238,7 +250,7 @@ void printingBoard (Board*board, Frog&frog, Car*cars, clock_t start_time) {
 			}
 			for ( int k = 0; k < board->numberOfCars; k++ ) {
 				for ( int l = 0; l < cars[k].lenght; l++ ) {
-					if ( i == cars[k].y && j == cars[k].x[l] ) {
+					if ( i == cars[k].y && j == cars[k].x[l] && cars[i].active ) {
 						textcolor ( cars[k].color );
 						char sign = cars[k].sign;
 						putch ( sign );
