@@ -74,88 +74,72 @@ void spawnCars ( Board * board , Car * cars ) {
 			cars[i].lenght = rand () % cars[i].max_lenght + 1;
 			cars[i].x = new int[cars[i].lenght];
 			cars[i].active = true;
-			if(cars[i].dissapear ) {
-				cars[i].direction = rand () % 2 == 0 ? LEFT : RIGHT;
+			cars[i].speed = rand () % 3 + 1;
+			cars[i].y = board->roadY[i];
+			if(!cars[i].dissapear )
+				cars[i].dissapear = rand () % 2 == 0 ? true : false;
+			cars[i].direction = rand () % 2 == 0 ? LEFT : RIGHT;
+			int start = ( cars[i].direction == RIGHT ) ? START_BOARD : START_BOARD + board->width - cars[i].lenght - 1;
+
+			if ( cars[i].dissapear ) {
 				if ( cars[i].direction == RIGHT ) {
-					for ( int k = cars[i].lenght - 1; k >= 0; k-- ) {
-						cars[i].x[k] = ( rand () % board->width ) + START_BOARD + k;
+					for ( int k = 0; k < cars[i].lenght; k++ ) {
+						cars[i].x[k] = start - k;
 					}
 				}
 				else {
-					for ( int k = 0; k < cars[i].lenght; k++ ) {
-						cars[i].x[k] = ( rand () % board->width ) + START_BOARD + k;
+					for ( int k = cars[i].lenght - 1; k >= 0; k-- ) {
+						cars[i].x[k] = start + k;
 					}
 				}
-				
-				cars[i].speed = rand()%3+1;
-			}
-			else if ( cars[i].lenght % 2 == 0) {
-				cars[i].direction = LEFT;
-				for ( int k = 0; k < cars[i].lenght; k++ ) {
-					cars[i].x[k] = board->spawn_car_x + k;
-				}
-				cars[i].dissapear = true;
 			}
 			else {
-				cars[i].direction = RIGHT;
+				cars[i].direction = ( rand () % 2 == 0 ) ? LEFT : RIGHT;
+
 				for ( int k = 0; k < cars[i].lenght; k++ ) {
-					cars[i].x[k] = board->spawn_car_x - k;
+					cars[i].x[k] = start + ( cars[i].direction == RIGHT ? k : -k );
 				}
-				cars[i].speed = 1.5;
 			}
-			cars[i].y = board->roadY[i];
 		}
 	}
 }
 
 
 void moveCar ( Board * board , Car * cars ) {
-	static int moveCounter = 0;
-	const int moveDelay = 4;    
-
-	moveCounter++;
-	if ( moveCounter < moveDelay ) {
-		return; 
-	}
-	moveCounter = 0;
-	
 	for ( int i = 0; i < board->numberOfCars; i++ ) {
-		if ( cars[i].x == nullptr ) {
+		for ( int k = 1; k < board->width - 1; k++ ) { //clearing street
+			gotoxy ( START_BOARD + k , cars[i].y );
+			putchar ( ' ' );
+		}
+		if ( !cars[i].active) {
 			continue;
 		}
 		
 		for ( int k = 0; k < cars[i].lenght; k++ ) { //moving
 			cars[i].x[k] += cars[i].direction * cars[i].speed;
 		}
+		bool hitBorder = false;
 		for ( int k = 0; k < cars[i].lenght; k++ ) {
+			if ( cars[i].x[k] >= START_BOARD + board->width - 2 || cars[i].x[k] <= START_BOARD ) {
+				hitBorder = true;
+				break;
+			}
+		}
+		if ( hitBorder ) {
 			if ( cars[i].dissapear ) {
-				if ( cars[i].x[k] >= START_BOARD + board->width - 2 ||
-					 cars[i].x[k] <= START_BOARD ) {
 					delete[] cars[i].x;
 					cars[i].x = nullptr;
 					cars[i].y = 0;
 					cars[i].lenght = 0;
-				}
+					cars[i].active = false;
 			}
 			else {
-				bool hitBorder = false;
-				if ( cars[i].x[k] >= START_BOARD + board->width - 2 ||
-					 cars[i].x[k] <= START_BOARD) {
-					hitBorder = true;
-				}
-				if ( hitBorder ) {
-					if ( cars[i].direction == RIGHT ) {
-						cars[i].direction = LEFT;
-					}
-					else {
-						cars[i].direction = RIGHT;
-					}
+				cars[i].direction = -cars[i].direction;//riverse direction 
+				int position = ( cars[i].direction == RIGHT ) ? START_BOARD + cars[i].lenght : START_BOARD + board->width - cars[i].lenght - 1;
+				for ( int k = 0; k < cars[i].lenght; k++ ) {
+					cars[i].x[k] = position + ( cars[i].direction == RIGHT ? -k : k );
 				}
 			}
-		}
-		for ( int k = 1; k < board->width - 1; k++ ) { //clearing street
-			gotoxy ( START_BOARD + k , cars[i].y );
-			putchar ( ' ' );
 		}
 	}
 }
@@ -249,11 +233,13 @@ void printingBoard (Board*board, Frog&frog, Car*cars, clock_t start_time) {
 				putch ( sign );
 			}
 			for ( int k = 0; k < board->numberOfCars; k++ ) {
-				for ( int l = 0; l < cars[k].lenght; l++ ) {
-					if ( i == cars[k].y && j == cars[k].x[l] && cars[i].active ) {
-						textcolor ( cars[k].color );
-						char sign = cars[k].sign;
-						putch ( sign );
+				if ( i == cars[k].y && cars[k].active ) {
+					for ( int l = 0; l < cars[k].lenght; l++ ) {
+						if ( j == cars[k].x[l]) {
+							textcolor ( cars[k].color );
+							char sign = cars[k].sign;
+							putch ( sign );
+						}
 					}
 				}
 			}
@@ -270,20 +256,33 @@ void printingBoard (Board*board, Frog&frog, Car*cars, clock_t start_time) {
 }
 
 void handelInput ( Board*board , Frog&frog , Car*cars ) {
+	const int frameDelayFrog = 300;
+	const int frameDelayCar = 500;
 	char input = 'j';
+	clock_t lastFrogMove = clock ();
+	clock_t lastCarMove = clock ();
 	clock_t start_time = clock ();
 	while (true && !frog.colision && !frog.win) {
+		clock_t current_time = clock ();
+		double elapsedFrogTime = ( double ) ( current_time - lastFrogMove ) / CLOCKS_PER_SEC * 1000; // ms
+		double elapsedCarTime = ( double ) ( current_time - lastCarMove ) / CLOCKS_PER_SEC * 1000;   // ms
 		frog.colision = colision ( frog , board , cars );
 		frog.win = win ( frog , board );
 		spawnCars (  board , cars );
-		moveCar ( board , cars );
+		if(elapsedCarTime>=frameDelayCar ){
+			moveCar ( board , cars );
+			lastCarMove = clock ();
+		}
 		printingBoard ( board , frog , cars,  start_time);
-		if ( kbhit () ) { 
-			input = getch ();
-			if ( input == 'q' ) {
-				break; 
+		if(elapsedFrogTime >= frameDelayFrog){
+			if ( kbhit () ) {
+				input = getch ();
+				if ( input == 'q' ) {
+					break;
+				}
+				movingFrog ( frog , board , input );
+				lastFrogMove = clock ();
 			}
-			movingFrog ( frog ,board, input );
 		}
 	}
 	clock_t end_time = clock ();
