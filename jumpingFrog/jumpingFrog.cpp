@@ -54,6 +54,8 @@ typedef struct Car {
 	char sign = 'a';
 	bool dissapear = false;
 	bool active = false;
+	bool stoping = false;
+	bool friendly = false;
  }Car;
 
 typedef struct Board {
@@ -129,6 +131,13 @@ void spawnCars ( Board * board , Car * cars ) {
 			cars[i].active = true;
 			cars[i].speed = rand () % 3 + 1;
 			cars[i].y = board->roadY[i];
+			cars[i].friendly = rand () % 2 == 0 ? true : false;
+			if ( cars[i].friendly ){
+				cars[i].color = LIGHTBLUE;
+				cars[i].stoping = rand () % 2 == 0 ? true : false;
+				if ( cars[i].stoping )
+					cars[i].color = WHITE;
+			}
 			if(!cars[i].dissapear )
 				cars[i].dissapear = rand () % 2 == 0 ? true : false;
 			cars[i].direction = rand () % 2 == 0 ? LEFT : RIGHT;
@@ -244,11 +253,51 @@ bool win ( Frog & frog , Board * board ) {
 	return false;
 }
 
-bool colisionWithCar (Frog&frog, Board*board, Car*cars) {
+bool colisionWithEnemyCar (Frog&frog, Board*board, Car*cars) {
 	for ( int i = 0; i < board->numberOfCars; i++ ) {
 		for ( int k = 0; k < cars[i].lenght; k++ ) {
-			if ( frog.y == cars[i].y && frog.x == cars[i].x[k] ) {
+			if ( frog.y == cars[i].y && frog.x == cars[i].x[k] && !cars[i].friendly ) {
 				return true;
+			}
+		}
+	}
+	return false;
+}
+
+bool colisionWithFriendlyCar ( Frog & frog , Board * board , Car * cars, int&index ) {
+	for ( int i = 0; i < board->numberOfCars; i++ ) {
+		if ( cars[i].friendly && !cars[i].stoping ) {
+			if ( cars[i].direction == LEFT ) {
+				if ( frog.y == cars[i].y && frog.x + 1 == cars[i].x[0] ) {
+					index = i;
+					return true;
+				}
+			}
+			else {
+				if ( frog.y == cars[i].y && frog.x - 1 == cars[i].x[0] ) {
+					index = i;
+					return true;
+				}
+			}
+		}
+	}
+	return false;
+}
+
+bool colisionWithStoppingCar ( Frog & frog , Board * board , Car * cars, int&index ) {
+	for ( int i = 0; i < board->numberOfCars; i++ ) {
+		if ( cars[i].stoping ) {
+			if ( cars[i].direction == LEFT ) {
+				if ( ( frog.y == cars[i].y || frog.y - 1 == cars[i].y ) && cars[i].x[0]-frog.x <= 2 && 0 <= cars[i].x[0] - frog.x ) {
+					index = i;
+					return true;
+				}
+			}
+			else {
+				if ( ( frog.y == cars[i].y || frog.y - 1 == cars[i].y ) && frog.x-cars[i].x[0] <= 2 && 0 <= frog.x-cars[i].x[0]) {
+					index = i;
+					return true;
+				}
 			}
 		}
 	}
@@ -382,6 +431,33 @@ void printingFrogCars (Board*board, Frog&frog, Car*cars, clock_t start_time) {
 
 }
 
+void friendlyCar (Board*board,Frog&frog,Car*cars, int index,clock_t start_time) {
+	int oldSpeed = cars[index].speed;
+	while ( colisionWithFriendlyCar ( frog , board , cars , index ) ) {
+		int newX = frog.x + cars[index].speed * cars[index].direction;
+
+		if ( newX >= START_BOARD + 1 && newX <= START_BOARD + board->width - 2 ) {
+			frog.x = newX;
+		}
+		else {
+			cars[index].speed = 0; 
+			frog.y--;
+			break;
+		}
+		printingFrogCars ( board , frog , cars , start_time );
+	}
+	cars[index].speed = oldSpeed;
+}
+
+void stoppingCar ( Board * board , Frog & frog , Car * cars, int index, clock_t start_time ) {
+	int oldSpeed = cars[index].speed;
+	while ( colisionWithStoppingCar( frog , board , cars , index ) ) {
+		cars[index].speed = 0;
+		printingFrogCars ( board , frog , cars , start_time );
+	}
+	cars[index].speed = oldSpeed;
+}
+
 void handelInput ( Board*board , Frog&frog , Car*cars, Tree*trees, Bush*bushes ) {
 	const int frameDelayFrog = 300;
 	const int frameDelayCar = 500;
@@ -396,12 +472,19 @@ void handelInput ( Board*board , Frog&frog , Car*cars, Tree*trees, Bush*bushes )
 		clock_t current_time = clock ();
 		double elapsedFrogTime = ( double ) ( current_time - lastFrogMove ) / CLOCKS_PER_SEC * 1000; // ms
 		double elapsedCarTime = ( double ) ( current_time - lastCarMove ) / CLOCKS_PER_SEC * 1000;   // ms
-		frog.colision = colisionWithCar ( frog , board , cars );
+		frog.colision = colisionWithEnemyCar ( frog , board , cars );
 		frog.win = win ( frog , board );
 		spawnCars (  board , cars );
 		if(elapsedCarTime>=frameDelayCar ){
 			moveCar ( board , cars );
 			lastCarMove = clock ();
+		}
+		int indexOfCar = 0;
+		if ( colisionWithFriendlyCar (frog,board,cars, indexOfCar) ) {
+			friendlyCar ( board , frog , cars , indexOfCar , start_time );
+		}
+		if ( colisionWithStoppingCar ( frog , board , cars, indexOfCar ) ) {
+			stoppingCar ( board , frog , cars , indexOfCar , start_time );
 		}
 		printingFrogCars ( board , frog , cars,  start_time);
 		if ( kbhit () ) {
