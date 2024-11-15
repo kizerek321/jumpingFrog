@@ -25,6 +25,22 @@ typedef struct Frog {
 	char sign = 'a';
 } Frog;
 
+typedef struct Tree {
+	int x = 0 , y = 0;
+	int color = LIGHTGREEN;
+	int sign = 'a';
+	int rangeX = 0;
+	bool colision = false;
+};
+
+typedef struct Bush {
+	int x = 0 , y = 0;
+	int color = LIGHTGREEN;
+	int sign = 'a';
+	int rangeX = 0;
+	int * rangeY;
+	bool colision = false;
+};
 typedef struct Car {
 	int y = 0;
 	int * x = nullptr;
@@ -47,26 +63,63 @@ typedef struct Board {
 	int firstYRoad = 0;
 	int * roadY;
 	int numberOfCars = 0;
-	int * x_road , *y_road ;
 	int spawn_car_x = 0;
+	int numberOfBush = 0;
+	int numberOfTrees = 0;
 }Board;
 
-void movingFrog (Frog&frog, Board*board, char input) {
-	frog.oldY = frog.y;
-	frog.oldX = frog.x;
-	if ( input == 'w'  && frog.y != START_BOARD + 1) {
-		frog.y--;
+bool canGo ( Frog & frog , Board * board , char input , Tree * trees , Bush * bushes ) {
+	int newX = frog.x;
+	int newY = frog.y;
+
+	if ( input == 'w' ) {
+		newY--;
 	}
-	else if ( input == 's' &&  frog.y != board->y_end_board-2) {
-		frog.y++;
+	else if ( input == 's' ) {
+		newY++;
 	}
-	else if ( input == 'a' && frog.x != START_BOARD +1) {
-		frog.x--;
+	else if ( input == 'a' ) {
+		newX--;
 	}
-	else if ( input == 'd' && frog.x != board->x_end_board -2) {
-		frog.x++;
+	else if ( input == 'd' ) {
+		newX++;
+	}
+	if ( newY == START_BOARD || newY == board->y_end_board - 1 ||
+		 newX == START_BOARD || newX == board->x_end_board - 1 ) {
+		return false;
+	}
+	for ( int i = 0; i < board->numberOfTrees; i++ ) {
+		if ( newX == trees[i].x && newY == trees[i].y ) {
+			return false;
+		}
+	}
+	for ( int i = 0; i < board->numberOfBush; i++ ) {
+		if ( newX == bushes[i].x && newY == bushes[i].y ) {
+			return false;
+		}
+	}
+	return true;
+}
+
+void movingFrog ( Frog & frog , Board * board , char input , Tree * trees , Bush * bushes ) {
+	if ( canGo ( frog , board , input , trees , bushes ) ) {
+		frog.oldY = frog.y;
+		frog.oldX = frog.x;
+		if ( input == 'w'  ) {
+			frog.y--;
+		}
+		else if ( input == 's' ) {
+			frog.y++;
+		}
+		else if ( input == 'a' ) {
+			frog.x--;
+		}
+		else if ( input == 'd') {
+			frog.x++;
+		}
 	}
 }
+
 
 void spawnCars ( Board * board , Car * cars ) {
 	for ( int i = 0; i < board->numberOfCars; i++ ) {
@@ -106,6 +159,7 @@ void spawnCars ( Board * board , Car * cars ) {
 
 
 void moveCar ( Board * board , Car * cars ) {
+	
 	for ( int i = 0; i < board->numberOfCars; i++ ) {
 		
 		if ( !cars[i].active) {
@@ -147,6 +201,42 @@ void moveCar ( Board * board , Car * cars ) {
 	}
 }
 
+void spawnTreeBush ( Board * board , Tree * trees , Bush * bushes ) {
+	for ( int k = 0; k < board->numberOfTrees; k++) {
+		bool validPos = false;
+		while ( !validPos ) {
+			trees[k].y = rand() % ( board->height - 2 ) + START_BOARD + 2;
+			validPos = true;
+			for ( int i = 0; i < board->numberOfStreets; i++ ) {
+				if ( trees[k].y == board->roadY[i] || trees[k].y == board->roadY[i] + 1 ||
+					 trees[k].y == board->roadY[i] - 1 ) {
+					validPos = false;
+					break;
+				}
+			}
+			trees[k].x = rand () % ( board->width - 2 ) + START_BOARD + 1;
+
+		}
+	}
+
+	for ( int k = 0; k < board->numberOfBush; k++ ) {
+		bool validPos = false;
+		while ( !validPos ) {
+			bushes[k].y = rand () % ( board->height - 2 ) + START_BOARD + 2;
+			validPos = true;
+			for ( int i = 0; i < board->numberOfStreets; i++ ) {
+				if ( bushes[k].y == board->roadY[i] || bushes[k].y == board->roadY[i] + 1 ||
+					 bushes[k].y == board->roadY[i] - 1 ) {
+					validPos = false;
+					break;
+				}
+			}
+			bushes[k].x = rand () % ( board->width - 2 ) + START_BOARD + 1;
+
+		}
+	}
+}
+
 bool win ( Frog & frog , Board * board ) {
 	if ( frog.y == START_BOARD + 1 ) {
 		return true;
@@ -154,7 +244,7 @@ bool win ( Frog & frog , Board * board ) {
 	return false;
 }
 
-bool colision (Frog&frog, Board*board, Car*cars) {
+bool colisionWithCar (Frog&frog, Board*board, Car*cars) {
 	for ( int i = 0; i < board->numberOfCars; i++ ) {
 		for ( int k = 0; k < cars[i].lenght; k++ ) {
 			if ( frog.y == cars[i].y && frog.x == cars[i].x[k] ) {
@@ -165,16 +255,16 @@ bool colision (Frog&frog, Board*board, Car*cars) {
 	return false;
 }
 
-void loadFile (Board*board,Frog*frog,Car*car, Car *& cars ) {
+void loadFile (Board*board,Frog*frog,Car*car, Car *& cars ,Tree*tree, Bush*bush, Tree*&trees, Bush*&bushes) {
 	FILE * file = fopen("config.txt","r");
 	if ( file == NULL ) {
 		printf("Error while opening file");
 		exit ( 1 );
 	}
-	fscanf ( file , 
-			 "%d %d %d %d %d %d %d %d %d %d %c %c %d %d %d" ,
-			 &board->width , 
-			 &board->height, 
+	fscanf ( file ,
+			 "%d %d %d %d %d %d %d %d %d %d %c %c %d %d %d %d %c %d %c" ,
+			 &board->width ,
+			 &board->height ,
 			 &board->numberOfStreets ,
 			 &board->numberOfCars ,
 			 &frog->x ,
@@ -183,11 +273,16 @@ void loadFile (Board*board,Frog*frog,Car*car, Car *& cars ) {
 			 &frog->jump ,
 			 &frog->jumpHeight ,
 			 &frog->colision ,
-			 &frog->sign, 
-			 &car->sign,
-			 &car->max_lenght,
-			 &board->firstYRoad,
-			 &car->speed);
+			 &frog->sign ,
+			 &car->sign ,
+			 &car->max_lenght ,
+			 &board->firstYRoad ,
+			 &car->speed,
+			 &board->numberOfTrees,
+			 &tree->sign,
+			 &board->numberOfBush,
+			 &bush->sign
+	);
 	fclose ( file );
 	board->roadY = new int[board->numberOfStreets];
 	for ( int i = 0; i < board->numberOfStreets; i++ ) {
@@ -202,9 +297,18 @@ void loadFile (Board*board,Frog*frog,Car*car, Car *& cars ) {
 		cars[i].max_lenght = car->max_lenght;
 		cars[i].speed = car->speed;
 	}
+	trees = new Tree[board->numberOfTrees];
+	bushes = new Bush[board->numberOfBush];
+	for ( int i = 0; i < board->numberOfTrees; i++ ) {
+		trees[i].sign = tree->sign;
+	}
+	for ( int i = 0; i < board->numberOfBush; i++ ) {
+		bushes[i].sign = bush->sign;
+
+	}
 }
 
-void printingStaticBoard(Board*board){
+void printingStaticBoard(Board*board, Tree*trees, Bush*bushes){
 	gotoxy ( 0 , 0 );
 	int y = START_BOARD + board->height;
 	int x = START_BOARD + board->width;
@@ -224,6 +328,18 @@ void printingStaticBoard(Board*board){
 				else if ( i == board->roadY[k] + 1 && j < x - 1 ) {
 					textcolor ( BLUE );
 					putch ( '-' );
+				}
+			}
+			for ( int k = 0; k < board->numberOfBush; k++ ) {
+				if ( i == bushes[k].y && j == bushes[k].x ) {
+					textcolor ( bushes[k].color );
+					putch ( bushes[k].sign );
+				}
+			}
+			for ( int k = 0; k < board->numberOfTrees; k++ ) {
+				if ( i == trees[k].y && j == trees[k].x ) {
+					textcolor ( trees[k].color );
+					putch ( trees[k].sign );
 				}
 			}
 		}
@@ -266,7 +382,7 @@ void printingFrogCars (Board*board, Frog&frog, Car*cars, clock_t start_time) {
 
 }
 
-void handelInput ( Board*board , Frog&frog , Car*cars ) {
+void handelInput ( Board*board , Frog&frog , Car*cars, Tree*trees, Bush*bushes ) {
 	const int frameDelayFrog = 300;
 	const int frameDelayCar = 500;
 	bool keyHeld = false;
@@ -274,12 +390,13 @@ void handelInput ( Board*board , Frog&frog , Car*cars ) {
 	clock_t lastFrogMove = clock ();
 	clock_t lastCarMove = clock ();
 	clock_t start_time = clock ();
-	printingStaticBoard ( board );
+	spawnTreeBush ( board , trees , bushes );
+	printingStaticBoard ( board, trees, bushes );
 	while (true && !frog.colision && !frog.win) {
 		clock_t current_time = clock ();
 		double elapsedFrogTime = ( double ) ( current_time - lastFrogMove ) / CLOCKS_PER_SEC * 1000; // ms
 		double elapsedCarTime = ( double ) ( current_time - lastCarMove ) / CLOCKS_PER_SEC * 1000;   // ms
-		frog.colision = colision ( frog , board , cars );
+		frog.colision = colisionWithCar ( frog , board , cars );
 		frog.win = win ( frog , board );
 		spawnCars (  board , cars );
 		if(elapsedCarTime>=frameDelayCar ){
@@ -293,7 +410,7 @@ void handelInput ( Board*board , Frog&frog , Car*cars ) {
 				if ( input == 'q' ) {
 					break;
 				}
-				movingFrog ( frog , board , input );
+				movingFrog ( frog , board , input , trees, bushes);
 				lastFrogMove = clock ();
 			}
 			keyHeld = true;
@@ -327,12 +444,17 @@ int main()
 	Board* board = new Board;
 	Frog frog;
 	Car* car = new Car;
+	Tree * tree = new Tree;
+	Bush * bush = new Bush;
 	Car * cars = nullptr;
+	Tree * trees = nullptr;
+	Bush * bushes = nullptr;
 	settitle ( "Krzysztof Szudy - Jumping Frog" );
 	_setcursortype ( _NOCURSOR );
-	loadFile ( board , &frog , car, cars);
+	loadFile ( board , &frog , car, cars,tree, bush, trees, bushes);
 	delete car;
-	handelInput ( board , frog , cars );
+	delete tree , bush;
+	handelInput ( board , frog , cars, trees, bushes );
 	delete[] cars;
 	delete board;
 }
