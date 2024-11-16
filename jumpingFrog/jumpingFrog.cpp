@@ -138,6 +138,9 @@ void spawnCars ( Board * board , Car * cars ) {
 				if ( cars[i].stoping )
 					cars[i].color = WHITE;
 			}
+			else {
+				cars[i].color = RED;
+			}
 			if(!cars[i].dissapear )
 				cars[i].dissapear = rand () % 2 == 0 ? true : false;
 			cars[i].direction = rand () % 2 == 0 ? LEFT : RIGHT;
@@ -268,13 +271,13 @@ bool colisionWithFriendlyCar ( Frog & frog , Board * board , Car * cars, int&ind
 	for ( int i = 0; i < board->numberOfCars; i++ ) {
 		if ( cars[i].friendly && !cars[i].stoping ) {
 			if ( cars[i].direction == LEFT ) {
-				if ( frog.y == cars[i].y && frog.x + 1 == cars[i].x[0] ) {
+				if ( frog.y == cars[i].y && frog.x - 1 == cars[i].x[0] ) {
 					index = i;
 					return true;
 				}
 			}
 			else {
-				if ( frog.y == cars[i].y && frog.x - 1 == cars[i].x[0] ) {
+				if ( frog.y == cars[i].y && frog.x + 1 == cars[i].x[0] ) {
 					index = i;
 					return true;
 				}
@@ -434,6 +437,7 @@ void printingFrogCars (Board*board, Frog&frog, Car*cars, clock_t start_time) {
 void friendlyCar (Board*board,Frog&frog,Car*cars, int index,clock_t start_time) {
 	int oldSpeed = cars[index].speed;
 	while ( colisionWithFriendlyCar ( frog , board , cars , index ) ) {
+		frog.x = cars[index].x[0] + ( cars[index].direction == RIGHT ? -1 : 1 );
 		int newX = frog.x + cars[index].speed * cars[index].direction;
 
 		if ( newX >= START_BOARD + 1 && newX <= START_BOARD + board->width - 2 ) {
@@ -449,13 +453,15 @@ void friendlyCar (Board*board,Frog&frog,Car*cars, int index,clock_t start_time) 
 	cars[index].speed = oldSpeed;
 }
 
-void stoppingCar ( Board * board , Frog & frog , Car * cars, int index, clock_t start_time ) {
-	int oldSpeed = cars[index].speed;
-	while ( colisionWithStoppingCar( frog , board , cars , index ) ) {
+void stoppingCar ( Board * board , Frog & frog , Car * cars, int&index, clock_t start_time, int&oldSpeed ) {
+	if ( cars[index].speed > 0 )
+		oldSpeed = cars[index].speed;
+	if ( colisionWithStoppingCar( frog , board , cars , index ) ) {
 		cars[index].speed = 0;
 		printingFrogCars ( board , frog , cars , start_time );
 	}
-	cars[index].speed = oldSpeed;
+	if ( frog.y < cars[index].y )
+		cars[index].speed = oldSpeed;
 }
 
 void handelInput ( Board*board , Frog&frog , Car*cars, Tree*trees, Bush*bushes ) {
@@ -468,6 +474,8 @@ void handelInput ( Board*board , Frog&frog , Car*cars, Tree*trees, Bush*bushes )
 	clock_t start_time = clock ();
 	spawnTreeBush ( board , trees , bushes );
 	printingStaticBoard ( board, trees, bushes );
+	int indexOfCar = 0;
+	int oldSpeed = 0;
 	while (true && !frog.colision && !frog.win) {
 		clock_t current_time = clock ();
 		double elapsedFrogTime = ( double ) ( current_time - lastFrogMove ) / CLOCKS_PER_SEC * 1000; // ms
@@ -479,12 +487,15 @@ void handelInput ( Board*board , Frog&frog , Car*cars, Tree*trees, Bush*bushes )
 			moveCar ( board , cars );
 			lastCarMove = clock ();
 		}
-		int indexOfCar = 0;
+		
 		if ( colisionWithFriendlyCar (frog,board,cars, indexOfCar) ) {
 			friendlyCar ( board , frog , cars , indexOfCar , start_time );
 		}
 		if ( colisionWithStoppingCar ( frog , board , cars, indexOfCar ) ) {
-			stoppingCar ( board , frog , cars , indexOfCar , start_time );
+			stoppingCar ( board , frog , cars , indexOfCar , start_time, oldSpeed );
+		}
+		else if ( cars[indexOfCar].speed == 0 ) {
+			stoppingCar ( board , frog , cars , indexOfCar , start_time, oldSpeed);
 		}
 		printingFrogCars ( board , frog , cars,  start_time);
 		if ( kbhit () ) {
