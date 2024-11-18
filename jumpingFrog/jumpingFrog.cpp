@@ -231,20 +231,6 @@ void moveStork ( Stork & stork , Board * board,Frog&frog, Tree*trees, Bush*bushe
 		stork.oldY = stork.y;
 		stork.x += stork.directionX * stork.speed;
 		stork.y += stork.directionY * stork.speed;
-		gotoxy ( stork.oldX , stork.oldY );
-		for ( int i = 0; i < board->numberOfStreets; i++ ) {
-			if ( stork.oldY == board->roadY[i] - 1 ) {
-				textcolor ( RED );
-				putchar ( '-' );
-				break;
-			}
-			else if ( stork.oldY == board->roadY[i] + 1 ) {
-				textcolor ( BLUE );
-				putchar ( '-' );
-				break;
-			}else
-				putchar ( ' ' );
-		}
 	}
 }
 
@@ -298,19 +284,17 @@ void moveCar ( Board * board , Car * cars ) {
 }
 
 void spawnTreeBush ( Board * board , Tree * trees , Bush * bushes, Coin*coins ) {
-	int TreesInRow = board->numberOfTrees / board->numberOfFreeSpace;
-	int BushesInRow = board->numberOfBush / board->numberOfFreeSpace;
+	int index = 0;
 	for ( int i = 0; i < board->numberOfTrees; i++ ) {
-		for(int k = 0; k< TreesInRow;k++ ){
-			trees[i].y = board->freeSpace[i];
-			trees[i].x = rand () % ( board->width - 2 ) + START_BOARD + 1;
-		}
+		index = rand () % board->numberOfFreeSpace;
+		trees[i].y = board->freeSpace[index];
+		trees[i].x = rand () % ( board->width - 2 ) + START_BOARD + 1;
+		
 	}
 	for ( int i = 0; i < board->numberOfBush; i++ ) {
-		for ( int k = 0; k < BushesInRow; k++ ) {
-			bushes[i].y = board->freeSpace[i];
-			bushes[i].x = rand () % ( board->width - 2 ) + START_BOARD + 1;
-		}
+		int index = rand () % board->numberOfFreeSpace;		
+		bushes[i].y = board->freeSpace[index];
+		bushes[i].x = rand () % ( board->width - 2 ) + START_BOARD + 1;
 	}
 }
 
@@ -403,18 +387,23 @@ void settingUp ( Board * board , Frog * frog , Car * car , Car *& cars , Tree * 
 	board->spawn_car_x = ( board->x_end_board - 1 ) / 2;
 	board->numberOfFreeSpace = board->height - 3 - board->numberOfStreets*STREET_HEIGHT;
 	board->freeSpace = new int[board->numberOfFreeSpace];
-	for ( int i = 0; i < board->numberOfFreeSpace; i++ ) {
-		int y = i + START_BOARD + 1;
+	int i = 0;
+	int y = i + START_BOARD + 1;
+	int index = 0;
+	while ( i < board->numberOfFreeSpace ) {
+		
+		bool isFreeSpace = true;
 		for ( int k = 0; k < board->numberOfStreets; k++ ) {
-			if ( y == board->roadY[k] ||y == board->roadY[k] + 1 ||
-				 y == board->roadY[k] - 1 ) {
-				break;
-			}
-			else {
-				board->freeSpace[i] = y;
+			if ( y == board->roadY[k] || y == board->roadY[k] + 1 || y == board->roadY[k] - 1 ) {
+				isFreeSpace = false;
 				break;
 			}
 		}
+		if ( isFreeSpace ) {
+			board->freeSpace[index++] = y;
+			i++;
+		}
+		y++;
 	}
 	stork->x = board->width / 2;
 	stork->y = START_BOARD + 2;
@@ -531,6 +520,8 @@ void printingFrogCars (Board*board, Frog&frog, Car*cars, clock_t start_time, Coi
 	gotoxy ( stork.x , stork.y );
 	textcolor ( stork.color );
 	putch ( stork.sign );
+	gotoxy ( stork.oldX , stork.oldY );
+	putchar ( ' ' );
 	for ( int k = 0; k < board->numberOfStreets; k++ ) {
 		gotoxy ( frog.oldX , frog.oldY );
 		if ( frog.oldY == board->roadY[k] - 1 ) {
@@ -538,6 +529,15 @@ void printingFrogCars (Board*board, Frog&frog, Car*cars, clock_t start_time, Coi
 			putch ( '-' );
 		}
 		else if ( frog.oldY == board->roadY[k] + 1 ) {
+			textcolor ( BLUE );
+			putch ( '-' );
+		}
+		gotoxy ( stork.oldX , stork.oldY );
+		if ( stork.oldY == board->roadY[k] - 1 ) {
+			textcolor ( RED );
+			putch ( '-' );
+		}
+		else if ( stork.oldY == board->roadY[k] + 1 ) {
 			textcolor ( BLUE );
 			putch ( '-' );
 		}
@@ -649,7 +649,7 @@ void loop ( Board * board , Frog & frog , Car * cars , Tree * trees , Bush * bus
 	}
 }
 
-void handelInput ( Board*board , Frog&frog , Car*cars, Tree*trees, Bush*bushes, Coin*coins,Stork&stork ) {
+void handelInput ( Board*board , Frog&frog , Car*cars, Tree*trees, Bush*bushes, Coin*coins,Stork&stork, bool& wantToPlay ) {
 	const int frameDelayFrog = 300;
 	const int frameDelayCS = 500; // frameDelay for CAR and STORK
 	clock_t lastFrogMove = clock ();
@@ -677,34 +677,72 @@ void handelInput ( Board*board , Frog&frog , Car*cars, Tree*trees, Bush*bushes, 
 		textcolor ( RED );
 		printf ( "You lose! Your time: %.2f s" , gameplay_time );
 	}
-	textcolor ( BLUE );
-	gotoxy ( X_END_INFO , Y_END_INFO + 1 );
-	printf ( "Thank you for playing! Press any key to exit..." );
-	textcolor ( WHITE );
+	char input = 'x';
+	while(input != 'y' && input !='q' ) {
+		textcolor ( BLUE );
+		gotoxy ( X_END_INFO , Y_END_INFO + 1 );
+		printf ( "Thank you for playing! Do you want to play again? y-new game, q-exit" );
+		textcolor ( WHITE );
+		input = getch ();
+		if ( input == 'q' )
+			wantToPlay = false;
+
+	}
+}
+
+void game () {
+	settitle ( "Krzysztof Szudy - Jumping Frog" );
+	_setcursortype ( _NOCURSOR );
+	const char * lvl1 = "config1.txt";
+	const char * lvl2 = "config2.txt";
+	const char * lvl3 = "config3.txt";
+	bool wantToPlay = true;
+	bool hasWon1 = false;
+	bool hasWon2 = false;
+	bool hasWon3 = false;
+	while ( wantToPlay ) {
+		Board * board = new Board;
+		Frog frog;
+		Car * car = new Car;
+		Tree * tree = new Tree;
+		Bush * bush = new Bush;
+		Car * cars = nullptr;
+		Tree * trees = nullptr;
+		Bush * bushes = nullptr;
+		Coin * coin = new Coin;
+		Coin * coins = nullptr;
+		Stork stork;
+		if(!hasWon1){
+			loadFile ( lvl1 , board , &frog , car , cars , tree , bush , trees , bushes , coin , coins , &stork );
+		}
+		else if ( hasWon1 && !hasWon2 ) {
+			loadFile ( lvl2 , board , &frog , car , cars , tree , bush , trees , bushes , coin , coins , &stork );
+
+		}
+		else if ( hasWon2 && !hasWon3) {
+			loadFile ( lvl3 , board , &frog , car , cars , tree , bush , trees , bushes , coin , coins , &stork );
+		}
+		else {
+			printf ( "you have won every level! do you want to start again from 1st level?" );
+		}
+		delete car , coin;
+		delete tree , bush;
+		handelInput ( board , frog , cars , trees , bushes , coins , stork, wantToPlay );
+		if ( frog.win )
+			hasWon1 = true;
+		delete[] cars;
+		delete board;
+		clrscr ();
+	}
+	gotoxy ( X_END_INFO , Y_END_INFO );
+	printf ( "see you next time! (press any key to close window...)" );
 	getch ();
 }
 
 int main()
 {
 	srand ( time ( NULL ) );
-	Board* board = new Board;
-	Frog frog;
-	Car* car = new Car;
-	Tree * tree = new Tree;
-	Bush * bush = new Bush;
-	Car * cars = nullptr;
-	Tree * trees = nullptr;
-	Bush * bushes = nullptr;
-	Coin* coin = new Coin;
-	Coin * coins = nullptr;
-	Stork stork;
-	settitle ( "Krzysztof Szudy - Jumping Frog" );
-	_setcursortype ( _NOCURSOR );
-	const char * fileName = "config1.txt";
-	loadFile ( fileName, board , &frog , car , cars , tree , bush , trees , bushes , coin , coins, &stork);
-	delete car, coin;
-	delete tree , bush;
-	handelInput ( board , frog , cars, trees, bushes, coins, stork );
-	delete[] cars;
-	delete board;
+	
+	game ( );
+	
 }
