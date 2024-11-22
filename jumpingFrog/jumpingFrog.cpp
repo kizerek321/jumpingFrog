@@ -525,6 +525,12 @@ void printingStaticBoard(Board*board, Tree*trees, Bush*bushes){
 			if ( i == START_BOARD || i == y - CORECTOR1 || j == START_BOARD || j == x - CORECTOR1 ) {
 				putch ( '*' );
 			}
+			if ( i == START_BOARD + CORECTOR1 ) {
+				if ( j % 2 == 0 )
+					textbackground ( WHITE );
+					putchar ( ' ' );
+			}
+			textbackground ( BLACK );
 			for ( int k = 0; k < board->numberOfStreets; k++ ) {
 				if ( i == board->roadY[k] - 1 && j < x - CORECTOR1 ) {
 					textcolor ( RED );
