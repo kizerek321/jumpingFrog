@@ -40,6 +40,11 @@ typedef struct Game {
 	int score2lvl = 0;
 	int score3lvl = 0;
 	int lastScore = 0;
+	clock_t lastFrogMove;
+	clock_t lastCarMove;
+	clock_t start_time;
+	clock_t lastStorkMove;
+	clock_t current_time;
 };
 
 typedef struct Stork {
@@ -123,7 +128,7 @@ typedef struct Coin {
 	int value = 0;
 }Coin;
 
-bool canGo (Const&constant, Frog & frog , Board * board , char input , Tree * trees , Bush * bushes ) {
+bool canGo (Const&constant, Frog & frog , Board * board , char input , Tree * trees , Bush * bushes ) { // funtion to check if frog can go(if there is no tree,bush on the way
 	int newX = frog.x;
 	int newY = frog.y;
 
@@ -156,7 +161,7 @@ bool canGo (Const&constant, Frog & frog , Board * board , char input , Tree * tr
 	return true;
 }
 
-bool canFly ( Const&constant, Stork&stork, Tree*trees, Bush*bushes, Board*board) {
+bool canFly ( Const&constant, Stork&stork, Tree*trees, Bush*bushes, Board*board) {//Checking if stork can fly, if there is no tree, bush on the way
 	int newX = stork.x + stork.directionX * stork.speed;
 	int newY = stork.y + stork.directionY * stork.speed;
 
@@ -204,10 +209,10 @@ void spawnCars ( Const&constant,Board * board , Car * cars ) {
 			cars[i].frameDelay = rand() % cars[i].frameDelayMax + cars[i].frameDelayMax;
 			cars[i].active = true;
 			cars[i].y = board->roadY[i];
-			cars[i].friendly = rand () % 2 == 0 ? true : false;
+			cars[i].friendly = rand () % 2 == 0 ? true : false; // setting randomly if car is friendly - will pick up frog and move it 
 			if ( cars[i].friendly ){
 				cars[i].color = LIGHTBLUE;
-				cars[i].stoping = rand () % 2 == 0 ? true : false;
+				cars[i].stoping = rand () % 2 == 0 ? true : false; //some of friendly cars will stop and let frog move across street
 				if ( cars[i].stoping )
 					cars[i].color = WHITE;
 			}
@@ -217,6 +222,7 @@ void spawnCars ( Const&constant,Board * board , Car * cars ) {
 			if(!cars[i].dissapear )
 				cars[i].dissapear = rand () % 2 == 0 ? true : false;
 			cars[i].direction = rand () % 2 == 0 ? constant.LEFT : constant.RIGHT;
+			// setting start point of car based on direction and lenght of car
 			int start = ( cars[i].direction == constant.RIGHT ) ? constant.START_BOARD + cars[i].lenght : constant.START_BOARD + board->width - cars[i].lenght - constant.CORECTOR1;
 
 			if ( cars[i].dissapear ) {
@@ -329,22 +335,35 @@ void moveCar ( Const&constant, Board * board , Car * cars, clock_t current_time 
 
 void spawnTreeBush ( Const&constant, Board * board , Tree * trees , Bush * bushes, Coin*coins ) {
 	int index = 0;
-	for ( int i = 0; i < board->numberOfTrees; i++ ) {
-		index = rand () % board->numberOfFreeSpace;
-		trees[i].y = board->freeSpace[index];
-		trees[i].x = rand () % ( board->width - constant.CORECTOR2 ) + constant.START_BOARD + constant.CORECTOR1;
-		if ( coins[i].y == trees[i].y && coins[i].x == trees[i].x ) {
-			trees[i].x = rand () % ( board->width - constant.CORECTOR2 ) + constant.START_BOARD + constant.CORECTOR1;
+	int x = board->height + constant.CORECTOR1;
+	bool ** freeSpacexy = new bool * [x];
+	for ( int i = 0; i < x; i++ ) {
+		freeSpacexy[i] = new bool[board->width + constant.START_BOARD];
+		for ( int j = 0; j < board->width; j++ ) {
+			freeSpacexy[i][j] = true;
 		}
 	}
+	for ( int i = 0; i < board->numberOfTrees; i++ ) {
+		do{
+			index = rand () % board->numberOfFreeSpace;
+			trees[i].y = board->freeSpace[index];
+			trees[i].x = rand () % ( board->width - constant.CORECTOR2 ) + constant.START_BOARD + constant.CORECTOR1;
+			freeSpacexy[trees[i].y][trees[i].x] = false;
+		} while ( freeSpacexy[trees[i].y][trees[i].x]);
+	}
 	for ( int i = 0; i < board->numberOfBush; i++ ) {
+		do {
 		index = rand () % board->numberOfFreeSpace;		
 		bushes[i].y = board->freeSpace[index];
 		bushes[i].x = rand () % ( board->width - constant.CORECTOR2 ) + constant.START_BOARD + constant.CORECTOR1;
-		if ( coins[i].y == bushes[i].y && coins[i].x == bushes[i].x ) {
-			bushes[i].x = rand () % ( board->width - constant.CORECTOR2 ) + constant.START_BOARD + constant.CORECTOR1;
-		}
+		freeSpacexy[bushes[i].y][bushes[i].x] = false;
+		} while ( freeSpacexy[bushes[i].y][bushes[i].x] );
 	}
+
+	for ( int i = 0; i <x; i++ ) {
+		delete[] freeSpacexy[i];
+	}
+	delete[] freeSpacexy;
 }
 
 bool win ( Const&constant, Frog & frog , Board * board ) {
@@ -368,17 +387,9 @@ bool colisionWithEnemyCar (Frog&frog, Board*board, Car*cars) {
 bool colisionWithFriendlyCar (Const&constant, Frog & frog , Board * board , Car * cars, int&index ) {
 	for ( int i = 0; i < board->numberOfCars; i++ ) {
 		if ( cars[i].friendly && !cars[i].stoping ) {
-			if ( cars[i].direction == constant.LEFT ) {
-				if ( frog.y == cars[i].y && frog.x - constant.CORECTOR1 == cars[i].x[0] ) {
-					index = i;
-					return true;
-				}
-			}
-			else {
-				if ( frog.y == cars[i].y && frog.x + constant.CORECTOR1 == cars[i].x[0] ) {
-					index = i;
-					return true;
-				}
+			if ( frog.y == cars[i].y && frog.x == cars[i].x[0] ) {
+				index = i;
+				return true;
 			}
 		}
 	}
@@ -409,15 +420,14 @@ void spawnCoin ( Const&constant, Board * board , Coin * coin , Coin *& coins ) {
 	for ( int i = 0; i < board->numberOfCoins; i++ ) {
 		coins[i].sign = coin->sign;
 		coins[i].value = rand () % 5 + constant.CORECTOR1;
-		int index = 0;
-		index = rand () % board->numberOfStreets;
+		int index = rand () % board->numberOfStreets;
 		coins[i].y = board->roadY[index] + (index %2 ==0 ? 1:-1);
 		coins[i].x = rand () % ( board->width - 2 ) + constant.START_BOARD + constant.CORECTOR1;
 	}
 }
 
 void settingUp (Const&constant, Board * board , Frog * frog , Car * car , Car *& cars , Tree * tree , Bush * bush , Tree *& trees ,
-				 Bush *& bushes, Coin*coin, Coin*&coins, Stork*stork ) {
+				 Bush *& bushes, Coin*coin, Coin*&coins, Stork*stork ) { // setting up all board, frog,stork,cars, trees and bushes paramiters
 	board->roadY = new int[board->numberOfStreets];
 	for ( int i = 0; i < board->numberOfStreets; i++ ) {
 		board->roadY[i] = board->firstYRoad + i * board->spaceBetweenRoads;
@@ -425,18 +435,18 @@ void settingUp (Const&constant, Board * board , Frog * frog , Car * car , Car *&
 	board->x_end_board = board->width + constant.START_BOARD;
 	board->y_end_board = board->height + constant.START_BOARD;
 	board->spawn_car_x = ( board->x_end_board - constant.CORECTOR1 ) / 2;
-	board->numberOfFreeSpace = board->height - constant.CORECTOR_HEIGHT - board->numberOfStreets* constant.STREET_HEIGHT;
+	board->numberOfFreeSpace = board->height - constant.CORECTOR_HEIGHT - constant.CORECTOR1 - board->numberOfStreets* constant.STREET_HEIGHT;
 	board->freeSpace = new int[board->numberOfFreeSpace];
 	frog->x = constant.START_BOARD + board->width / 2;
 	frog->y = constant.START_BOARD + board->height - constant.CORECTOR2;
 	int i = 0;
-	int y = i + constant.START_BOARD + constant.CORECTOR1;
+	int y = i + constant.START_BOARD + constant.CORECTOR2;
 	int index = 0;
-	while ( i < board->numberOfFreeSpace ) {
-		
+	while ( i < board->numberOfFreeSpace && y < board->height ) {
 		bool isFreeSpace = true;
 		for ( int k = 0; k < board->numberOfStreets; k++ ) {
-			if ( y == board->roadY[k] || y == board->roadY[k] + constant.CORECTOR1 || y == board->roadY[k] - constant.CORECTOR1 ) {
+			if ( y == board->roadY[k] || y == board->roadY[k] + constant.CORECTOR1 || y == board->roadY[k] - constant.CORECTOR1 ||
+				 y == board->height) {
 				isFreeSpace = false;
 				break;
 			}
@@ -516,7 +526,7 @@ void loadConstants ( Const*constants ) {
 }
 
 void loadFile (Const&constant, const char* fileName, Board*board,Frog*frog,Car*car, Car *& cars ,Tree*tree, Bush*bush, Tree*&trees,
-				Bush*&bushes, Coin*coin, Coin*&coins, Stork*stork) {
+				Bush*&bushes, Coin*coin, Coin*&coins, Stork*stork) { //function to load lvls
 	FILE * file = fopen(fileName,"r");
 	if ( file == NULL ) {
 		printf("Error while opening file");
@@ -597,7 +607,7 @@ void printingStaticBoard(Const&constant,Board*board, Tree*trees, Bush*bushes){
 	printf ( "press q to exit   " );
 	printf ( "w - up, a - left, s - down, d - right" );
 }
-void printingFrogCars ( Const&constant,Board*board, Frog&frog, Car*cars, clock_t start_time, Coin*coins, Stork&stork) {
+void printingFrogCars ( Const&constant,Board*board, Frog&frog, Car*cars, Game&game, Coin*coins, Stork&stork) {
 	textcolor ( frog.color );
 	gotoxy ( frog.x , frog.y );
 	putch ( frog.sign );
@@ -647,7 +657,7 @@ void printingFrogCars ( Const&constant,Board*board, Frog&frog, Car*cars, clock_t
 	gotoxy ( constant.TIME_X , constant.TIME_Y - constant.CORECTOR1 );
 	textcolor ( RED );
 	clock_t current_time = clock ();
-	double elapsed_time = ( double ) ( current_time - start_time ) / CLOCKS_PER_SEC;
+	double elapsed_time = ( double ) ( current_time - game.start_time ) / CLOCKS_PER_SEC;
 	printf ( "your time: %.2f s" , elapsed_time );
 	gotoxy ( constant.TIME_X , constant.TIME_Y );
 	textcolor ( YELLOW );
@@ -659,7 +669,7 @@ void friendlyCar (Const&constant,Board*board,Frog&frog,Car*cars, int index,clock
 	do {
 		int newX = cars[index].x[0] + cars[index].speed * cars[index].direction;
 
-		if ( newX > constant.START_BOARD && newX < constant.START_BOARD + board->width ) {
+		if ( newX > constant.START_BOARD && newX < constant.START_BOARD + board->width - constant.CORECTOR1 ) {
 			movingFrog (constant, frog , board , ( cars[index].direction == constant.RIGHT ? 'd' : 'a' ) , trees , bushes );
 		}
 		else { 
@@ -669,56 +679,57 @@ void friendlyCar (Const&constant,Board*board,Frog&frog,Car*cars, int index,clock
 	} while ( colisionWithFriendlyCar ( constant, frog , board , cars , index ) );
 }
 
-void stoppingCar ( Const&constant, Board * board , Frog & frog , Car * cars, int&index, clock_t start_time, int&oldSpeed, Coin*coins,Stork&stork ) {
+void stoppingCar ( Game&game,Const&constant, Board * board , Frog & frog , Car * cars, int&index, int&oldSpeed, Coin*coins,Stork&stork ) {
 	if ( cars[index].speed > 0 )
 		oldSpeed = cars[index].speed;
 	if ( colisionWithStoppingCar(constant, frog , board , cars , index ) ) {
 		cars[index].speed = 0;
-		printingFrogCars ( constant, board , frog , cars , start_time, coins,stork );
+		printingFrogCars ( constant, board , frog , cars , game, coins,stork );
 	}
 	if ( frog.y < cars[index].y || ( frog.x - cars[index].x[0] > constant.SAFE_DISTANCE && cars[index].direction == constant.RIGHT ) || (cars[index].x[0] - frog.x > constant.SAFE_DISTANCE && cars[index].direction == constant.LEFT ))
 		cars[index].speed = oldSpeed;
 }
 
-void loop (Const&constant, Board * board , Frog & frog , Car * cars , Tree * trees , Bush * bushes , clock_t&lastFrogMove,
-			clock_t&lastCarMove, clock_t&start_time, int&indexOfCar, int&oldSpeed, bool&playing, Coin*coins,Stork&stork,clock_t&lastStorkMove ) {
-	clock_t current_time = clock ();
+//main loop of the game
+void loop (Game&game, Const&constant, Board * board , Frog & frog , Car * cars , Tree * trees , Bush * bushes ,
+			 int&indexOfCar, int&oldSpeed, bool&playing, Coin*coins,Stork&stork ) {
+	game.current_time = clock ();
 	bool keyHeld = false;
 	char input = 'j';
-	double elapsedFrogTime = ( double ) ( current_time - lastFrogMove ) / CLOCKS_PER_SEC * 1000; // ms
-	double elsapsedStorkTime = ( double ) ( current_time - lastStorkMove ) / CLOCKS_PER_SEC * 1000;   // ms
+	double elapsedFrogTime = ( double ) ( game.current_time - game.lastFrogMove ) / CLOCKS_PER_SEC * 1000; // ms
+	double elsapsedStorkTime = ( double ) ( game.current_time - game.lastStorkMove ) / CLOCKS_PER_SEC * 1000;   // ms
 
 	frog.colision = colisionWithEnemyCar ( frog , board , cars );
 	frog.win = win ( constant , frog , board );
 	spawnCars ( constant, board , cars );
 	
-	moveCar ( constant, board , cars, current_time);
+	moveCar ( constant, board , cars, game.current_time);
 
 
 	if ( colisionWithFriendlyCar (constant, frog , board , cars , indexOfCar ) ) {
-		friendlyCar ( constant, board , frog , cars , indexOfCar , start_time ,trees,bushes);
+		friendlyCar ( constant, board , frog , cars , indexOfCar , game.start_time ,trees,bushes);
 	}
 	if ( colisionWithStoppingCar ( constant, frog , board , cars , indexOfCar ) ) {
-		stoppingCar ( constant, board , frog , cars , indexOfCar , start_time , oldSpeed,coins,stork );
+		stoppingCar ( game, constant, board , frog , cars , indexOfCar, oldSpeed,coins,stork );
 	}
 	else if ( cars[indexOfCar].speed == 0 ) {
-		stoppingCar ( constant, board , frog , cars , indexOfCar , start_time , oldSpeed,coins,stork );
+		stoppingCar ( game, constant, board , frog , cars , indexOfCar , oldSpeed,coins,stork );
 	}
 	if(elsapsedStorkTime >= stork.frameDelay ){
 		moveStork ( constant, stork , board , frog , trees , bushes );
-		lastStorkMove = clock ();
+		game.lastStorkMove = clock ();
 	}
 	stork.eatFrog = colisionStork (frog, stork );
 	colectingCoin ( frog , coins , board );
 	if ( kbhit () ) {
-		if ( !keyHeld ) {
+		if ( !keyHeld ) { //prevents stocking inpput from user
 			input = getch ();
 			if ( input == 'q' ) {
 				playing = false;
 			}
 			if(elapsedFrogTime >= frog.frameDelay){
 				movingFrog ( constant, frog , board , input , trees , bushes );
-				lastFrogMove = clock ();
+				game.lastFrogMove = clock ();
 			}
 		}
 		keyHeld = true;
@@ -726,25 +737,22 @@ void loop (Const&constant, Board * board , Frog & frog , Car * cars , Tree * tre
 	else {
 		keyHeld = false;
 	}
-	printingFrogCars ( constant, board , frog , cars , start_time, coins,stork );
+	printingFrogCars ( constant, board , frog , cars , game, coins,stork );
 	
 }
 
-void handelInput ( Const&constant, Game&game,Board*board , Frog&frog , Car*cars, Tree*trees, Bush*bushes, Coin*coins,Stork&stork, bool& wantToPlay, bool hasWon3 ) {
-	clock_t lastFrogMove = clock ();
-	clock_t lastCarMove = clock ();
-	clock_t start_time = clock ();
-	clock_t lastStorkMove = clock ();
+void handelInput ( Const&constant, Game&game, Board*board , Frog&frog , Car*cars, Tree*trees, Bush*bushes, Coin*coins,Stork&stork, bool& wantToPlay, bool hasWon3 ) {
+	game.start_time = clock ();
 	spawnTreeBush ( constant, board , trees , bushes,coins );
 	printingStaticBoard ( constant, board, trees, bushes );
 	int indexOfCar = 0;
 	int oldSpeed = 0;
 	bool playing = true;
 	while (playing && !frog.colision && !frog.win && !stork.eatFrog) {
-		loop ( constant, board , frog , cars , trees , bushes , lastFrogMove , lastCarMove , start_time , indexOfCar , oldSpeed, playing, coins, stork, lastStorkMove );
+		loop ( game, constant, board , frog , cars , trees , bushes , indexOfCar , oldSpeed, playing, coins, stork );
 	}
 	clock_t end_time = clock ();
-	double gameplay_time = ( double ) ( end_time - start_time ) / CLOCKS_PER_SEC;
+	double gameplay_time = ( double ) ( end_time - game.start_time ) / CLOCKS_PER_SEC;
 	if ( frog.win ) {
 		gotoxy ( constant.X_END_INFO, constant.Y_END_INFO );
 		textcolor ( GREEN );
@@ -760,6 +768,7 @@ void handelInput ( Const&constant, Game&game,Board*board , Frog&frog , Car*cars,
 	}
 }
 
+//levels manager, cheking if player won previous level so they can play next one
 void nextLvl (Const&constant,Game&game, Frog&frog, bool&hasWon1, bool&hasWon2, bool&hasWon3, bool&wantToPlay) {
 	if ( frog.win && !hasWon1 ) {
 		hasWon1 = true;
