@@ -149,7 +149,7 @@ bool canGo ( Const & constant , Frog & frog , Board * board , char input , Tree 
 	else if ( input == 'd' ) {
 		newX++;
 	}
-	if ( newY == constant.START_BOARD || newY == board->startingY ||
+	if ( newY == constant.START_BOARD || newY == board->bottom_end_board ||
 		 newX == constant.START_BOARD || newX == board->rightStartRoad ) {
 		return false;
 	}
@@ -292,7 +292,7 @@ bool colisionStork ( Frog & frog , Stork & stork ) {
 }
 
 void carLogic ( Const & constant , Board * board , Car * cars, int i) {
-	for ( int k = 1; k < board->width - 1; k++ ) { //clearing street
+	for ( int k = 1; k < board->width; k++ ) { //clearing street
 		int posX = constant.START_BOARD + k;
 		if ( posX != constant.START_BOARD && posX != board->rightStartRoad ) {
 			gotoxy ( posX , cars[i].y );
@@ -360,16 +360,19 @@ void spawnTreeBush ( Const & constant , Board * board , Tree * trees , Bush * bu
 			index = rand () % board->numberOfFreeSpace;
 			trees[i].y = board->freeSpace[index];
 			trees[i].x = rand () % ( modulo ) + constant.START_BOARD + constant.CORECTOR1;
-			freeSpaceGrid[trees[i].y][trees[i].x] = false;
-		} while ( freeSpaceGrid[trees[i].y][trees[i].x] );
+			if( freeSpaceGrid[trees[i].y][trees[i].x] ){
+				freeSpaceGrid[trees[i].y][trees[i].x] = -1;
+			}
+		} while ( !freeSpaceGrid[trees[i].y][trees[i].x] );
 	}
 	for ( int i = 0; i < board->numberOfBush; i++ ) {
 		do {
 			index = rand () % board->numberOfFreeSpace;
 			bushes[i].y = board->freeSpace[index];
 			bushes[i].x = rand () % ( modulo ) + constant.START_BOARD + constant.CORECTOR1;
-			freeSpaceGrid[bushes[i].y][bushes[i].x] = false;
-		} while ( freeSpaceGrid[bushes[i].y][bushes[i].x] );
+			if( freeSpaceGrid[bushes[i].y][bushes[i].x] )
+				freeSpaceGrid[bushes[i].y][bushes[i].x] = -1;
+		} while ( !freeSpaceGrid[bushes[i].y][bushes[i].x] );
 	}
 
 	for ( int i = 0; i < board->bottom_end_board; i++ ) {
@@ -434,7 +437,7 @@ void spawnCoin ( Const & constant , Board * board , Coin * coin , Coin *& coins 
 		coins[i].value = rand () % 5 + constant.CORECTOR1;
 		int index = rand () % board->numberOfStreets;
 		coins[i].y = index % 2 == 0 ? board->topCurb[index] : board->bottomCurb[index];
-		coins[i].x = rand () % ( board->rightStartRoad ) + constant.START_BOARD + constant.CORECTOR1;
+		coins[i].x = rand () % ( board->rightStartRoad - board->leftStartRoad) + board->leftStartRoad;
 	}
 }
 
@@ -466,16 +469,15 @@ void settingUpActors ( Const & constant , Board * board , Frog * frog , Car * ca
 }
 
 void savingFreeSpace (Board*board, Const&constant) {
-	board->numberOfFreeSpace = board->startingY - constant.CORECTOR_HEIGHT - board->numberOfStreets * constant.STREET_HEIGHT;
+	board->numberOfFreeSpace = board->startingY - constant.START_BOARD - constant.CORECTOR_HEIGHT - board->numberOfStreets * constant.STREET_HEIGHT;
 	board->freeSpace = new int[board->numberOfFreeSpace];
 	int i = 0;
 	int y = i + constant.START_BOARD + constant.CORECTOR2;
 	int index = 0;
-	while ( i < board->numberOfFreeSpace && y < board->height ) {
+	while ( i < board->numberOfFreeSpace && y < board->bottom_end_board ) {
 		bool isFreeSpace = true;
 		for ( int k = 0; k < board->numberOfStreets; k++ ) {
-			if ( y == board->roadY[k] || y == board->bottomCurb[k] || y == board->topCurb[k] ||
-				 y == board->height ) {
+			if ( y == board->roadY[k] || y == board->bottomCurb[k] || y == board->topCurb[k] ) {
 				isFreeSpace = false;
 				break;
 			}
@@ -497,9 +499,9 @@ void settingUpBoard ( Const & constant , Board * board) { // setting up all boar
 		board->bottomCurb[i] = board->roadY[i] + constant.CORECTOR1;
 		board->topCurb[i] = board->roadY[i] - constant.CORECTOR1;
 	}
-	board->startingY = board->height - constant.CORECTOR1;
+	board->startingY = constant.START_BOARD+board->height - constant.CORECTOR1;
 	board->metaY = constant.START_BOARD + constant.CORECTOR1;
-	board->rightStartRoad = board->width + constant.START_BOARD - constant.CORECTOR1;
+	board->rightStartRoad = board->width + constant.START_BOARD;
 	board->leftStartRoad = constant.START_BOARD + constant.CORECTOR1;
 	board->right_end_board = board->width + constant.START_BOARD;
 	board->bottom_end_board = board->height + constant.START_BOARD;
@@ -589,8 +591,8 @@ void loadFile ( Const & constant , const char * fileName , Board * board , Frog 
 void printingStaticBoard ( Const & constant , Board * board , Tree * trees , Bush * bushes ) {
 	gotoxy ( 0 , 0 );
 
-	for ( int i = constant.START_BOARD; i < board->height; i++ ) {
-		for ( int j = constant.START_BOARD; j < board->width; j++ ) {
+	for ( int i = constant.START_BOARD; i < board->bottom_end_board + constant.CORECTOR1; i++ ) {
+		for ( int j = constant.START_BOARD; j < board->right_end_board + constant.CORECTOR1; j++ ) {
 			textcolor ( WHITE );
 			gotoxy ( j , i );
 			if ( i == constant.START_BOARD || i == board->bottom_end_board || j == constant.START_BOARD || j == board->right_end_board ) {
