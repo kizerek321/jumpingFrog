@@ -170,7 +170,7 @@ bool canFly ( Const & constant , Stork & stork , Tree * trees , Bush * bushes , 
 	int newX = stork.x + stork.directionX * stork.speed;
 	int newY = stork.y + stork.directionY * stork.speed;
 
-	if ( newY == constant.START_BOARD || newY == board->startingY ||
+	if ( newY == constant.START_BOARD || newY == board->bottom_end_board ||
 		 newX == constant.START_BOARD || newX == board->rightStartRoad ) {
 		return false;
 	}
@@ -354,25 +354,25 @@ void spawnTreeBush ( Const & constant , Board * board , Tree * trees , Bush * bu
 			freeSpaceGrid[i][j] = true;
 		}
 	}
-	int modulo = board->rightStartRoad - constant.START_BOARD - constant.CORECTOR1;
+	int modulo = board->rightStartRoad - board->leftStartRoad;
 	for ( int i = 0; i < board->numberOfTrees; i++ ) {
 		do {
 			index = rand () % board->numberOfFreeSpace;
 			trees[i].y = board->freeSpace[index];
-			trees[i].x = rand () % ( modulo ) + constant.START_BOARD + constant.CORECTOR1;
-			if( freeSpaceGrid[trees[i].y][trees[i].x] ){
-				freeSpaceGrid[trees[i].y][trees[i].x] = -1;
+			trees[i].x = rand () % ( modulo ) + board->leftStartRoad;
+			if( freeSpaceGrid[trees[i].y][trees[i].x]) {
+				freeSpaceGrid[trees[i].y][trees[i].x] = false;
 			}
-		} while ( !freeSpaceGrid[trees[i].y][trees[i].x] );
+		} while ( freeSpaceGrid[trees[i].y][trees[i].x] );
 	}
 	for ( int i = 0; i < board->numberOfBush; i++ ) {
 		do {
 			index = rand () % board->numberOfFreeSpace;
 			bushes[i].y = board->freeSpace[index];
 			bushes[i].x = rand () % ( modulo ) + constant.START_BOARD + constant.CORECTOR1;
-			if( freeSpaceGrid[bushes[i].y][bushes[i].x] )
-				freeSpaceGrid[bushes[i].y][bushes[i].x] = -1;
-		} while ( !freeSpaceGrid[bushes[i].y][bushes[i].x] );
+			if( freeSpaceGrid[bushes[i].y][bushes[i].x])
+				freeSpaceGrid[bushes[i].y][bushes[i].x] = false;
+		} while ( freeSpaceGrid[bushes[i].y][bushes[i].x]);
 	}
 
 	for ( int i = 0; i < board->bottom_end_board; i++ ) {
@@ -469,15 +469,15 @@ void settingUpActors ( Const & constant , Board * board , Frog * frog , Car * ca
 }
 
 void savingFreeSpace (Board*board, Const&constant) {
-	board->numberOfFreeSpace = board->startingY - constant.START_BOARD - constant.CORECTOR_HEIGHT - board->numberOfStreets * constant.STREET_HEIGHT;
+	board->numberOfFreeSpace = board->startingY -constant.CORECTOR1 - board->metaY - board->numberOfStreets * constant.STREET_HEIGHT;
 	board->freeSpace = new int[board->numberOfFreeSpace];
-	int i = 0;
-	int y = i + constant.START_BOARD + constant.CORECTOR2;
+	int i = 1;
+	int y = i + board->metaY;
 	int index = 0;
-	while ( i < board->numberOfFreeSpace && y < board->bottom_end_board ) {
+	while ( index < board->numberOfFreeSpace && y < board->bottom_end_board ) {
 		bool isFreeSpace = true;
 		for ( int k = 0; k < board->numberOfStreets; k++ ) {
-			if ( y == board->roadY[k] || y == board->bottomCurb[k] || y == board->topCurb[k] ) {
+			if ( y == board->roadY[k] || y == board->bottomCurb[k] || y == board->topCurb[k] || y == board->startingY) {
 				isFreeSpace = false;
 				break;
 			}
