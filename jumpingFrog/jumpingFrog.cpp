@@ -40,6 +40,7 @@ typedef struct Game {
 	int score2lvl = 0;
 	int score3lvl = 0;
 	int lastScore = 0;
+	bool playing = true;
 	clock_t lastFrogMove;
 	clock_t lastCarMove;
 	clock_t start_time;
@@ -333,7 +334,7 @@ void carLogic ( Const & constant , Board * board , Car * cars, int i) {
 void moveCar ( Const & constant , Board * board , Car * cars , clock_t current_time ) {
 	for ( int i = 0; i < board->numberOfCars; i++ ) {
 		double elapsedTime = ( double ) ( current_time - cars[i].lastMove ) / CLOCKS_PER_SEC * 1000;   // ms
-		if ( elapsedTime >= cars[i].frameDelay ) {
+		if ( elapsedTime >= cars[i].frameDelay ) { // moving car is done only once per frameDelay which is diffrent for each car not bigger than max frameDelay inported from file
 			if ( !cars[i].active ) {
 				continue;
 			}
@@ -731,38 +732,24 @@ void colisionChecker ( Game & game , Const & constant , Board * board , Frog & f
 	else if ( cars[indexOfCar].speed == 0 ) {
 		stoppingCar ( game , constant , board , frog , cars , indexOfCar , oldSpeed , coins , stork );
 	}
+}
+
+void ifStorkFrogCanMove (Game&game, Board*board, Frog&frog, Stork&stork, Tree*trees, Bush*bushes,Const&constant) {
 	double elsapsedStorkTime = ( double ) ( game.current_time - game.lastStorkMove ) / CLOCKS_PER_SEC * 1000;   // ms
 	if ( elsapsedStorkTime >= stork.frameDelay ) {
 		moveStork ( constant , stork , board , frog , trees , bushes );
 		game.lastStorkMove = clock ();
 	}
-}
-
-//main loop of the game
-void loop ( Game & game , Const & constant , Board * board , Frog & frog , Car * cars , Tree * trees , Bush * bushes ,
-			int & indexOfCar , int & oldSpeed , bool & playing , Coin * coins , Stork & stork ) {
-	game.current_time = clock ();
 	bool keyHeld = false;
 	char input = 'j';
-	double elapsedFrogTime = ( double ) ( game.current_time - game.lastFrogMove ) / CLOCKS_PER_SEC * 1000; // ms
-	
-
-	frog.colision = colisionWithEnemyCar ( frog , board , cars );
-	frog.win = win ( frog , board );
-	spawnCars ( constant , board , cars );
-
-	moveCar ( constant , board , cars , game.current_time );
-
-	stork.eatFrog = colisionStork ( frog , stork );
-	colectingCoin ( frog , coins , board );
-	colisionChecker ( game , constant , board , frog , cars , trees , bushes , indexOfCar , oldSpeed , coins , stork );
 	if ( kbhit () ) {
 		if ( !keyHeld ) { //prevents stocking inpput from user
 			input = getch ();
 			if ( input == 'q' ) {
-				playing = false;
+				game.playing = false;
 			}
-			if ( elapsedFrogTime >= frog.frameDelay ) {
+			double elapsedFrogTime = ( double ) ( game.current_time - game.lastFrogMove ) / CLOCKS_PER_SEC * 1000; // ms
+			if ( elapsedFrogTime >= frog.frameDelay ) { //moving frog only once per frameDelay
 				movingFrog ( constant , frog , board , input , trees , bushes );
 				game.lastFrogMove = clock ();
 			}
@@ -772,6 +759,20 @@ void loop ( Game & game , Const & constant , Board * board , Frog & frog , Car *
 	else {
 		keyHeld = false;
 	}
+}
+
+//main loop of the game
+void loop ( Game & game , Const & constant , Board * board , Frog & frog , Car * cars , Tree * trees , Bush * bushes ,
+			int & indexOfCar , int & oldSpeed , Coin * coins , Stork & stork ) {
+	game.current_time = clock ();
+	frog.colision = colisionWithEnemyCar ( frog , board , cars );
+	frog.win = win ( frog , board );
+	spawnCars ( constant , board , cars );
+	moveCar ( constant , board , cars , game.current_time );
+	stork.eatFrog = colisionStork ( frog , stork );
+	colectingCoin ( frog , coins , board );
+	colisionChecker ( game , constant , board , frog , cars , trees , bushes , indexOfCar , oldSpeed , coins , stork );
+	ifStorkFrogCanMove ( game , board , frog , stork , trees , bushes , constant );
 	printingFrogStork ( constant , board , frog , game , stork );
 	printingCarsCoins ( constant , board , cars , coins , game );
 }
@@ -782,9 +783,8 @@ void gameHandler ( Const & constant , Game & game , Board * board , Frog & frog 
 	printingStaticBoard ( constant , board , trees , bushes );
 	int indexOfCar = 0;
 	int oldSpeed = 0;
-	bool playing = true;
-	while ( playing && !frog.colision && !frog.win && !stork.eatFrog ) {
-		loop ( game , constant , board , frog , cars , trees , bushes , indexOfCar , oldSpeed , playing , coins , stork );
+	while ( game.playing && !frog.colision && !frog.win && !stork.eatFrog ) {
+		loop ( game , constant , board , frog , cars , trees , bushes , indexOfCar , oldSpeed , coins , stork );
 	}
 	clock_t end_time = clock ();
 	double gameplay_time = ( double ) ( end_time - game.start_time ) / CLOCKS_PER_SEC;
@@ -792,6 +792,7 @@ void gameHandler ( Const & constant , Game & game , Board * board , Frog & frog 
 		gotoxy ( constant.X_END_INFO , constant.Y_END_INFO );
 		textcolor ( GREEN );
 		printf ( "You win! Your time: %.2f s" , gameplay_time );
+		printf ( " and your is score: %d" , board->score );
 		game.timeForLastLVL = gameplay_time;
 		game.lastScore = board->score;
 
